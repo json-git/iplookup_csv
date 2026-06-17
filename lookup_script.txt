@@ -1,0 +1,47 @@
+async function main(workbook: ExcelScript.Workbook) {
+    const sheet = workbook.getActiveWorksheet();
+    const selectedRange = workbook.getSelectedRange();
+    const values = selectedRange.getValues() as (string | number | boolean)[][];
+    const startRow: number = selectedRange.getRowIndex();
+    const col: number = selectedRange.getColumnIndex();
+    const usedRange = sheet.getUsedRange();
+    const rowCount: number = usedRange ? usedRange.getRowCount() : startRow + values.length + 1;
+    const token: string = "api token here :)";
+
+    const insertRange = sheet.getRangeByIndexes(
+        0,
+        col + 1,
+        rowCount,
+        1
+    );
+
+    insertRange.insert(ExcelScript.InsertShiftDirection.right);
+    sheet.getCell(startRow, col + 1).setValue("Registrar");
+
+    // cache for duplicate IPs
+    const cache: { [ip: string]: string } = {};
+
+    for (let i = 0; i < values.length; i++) {
+        const ip: string = String(values[i][0] ?? "").trim();
+        if (ip === "") continue;
+        let result: string;
+
+        // check cache 
+        if (cache[ip] !== undefined) {
+            result = cache[ip];
+        } else {
+            try {
+                const response = await fetch(
+                    `https://ipinfo.io/${ip}?token=${token}`
+                );
+                const data = await response.json() as { org?: string };
+                result = data.org ?? "Not Found";
+            } catch (e) {
+                result = "Lookup Failed";
+            }
+            cache[ip] = result;
+        }
+        sheet.getCell(startRow + i, col + 1)
+            .setValue(result);
+    }
+}
